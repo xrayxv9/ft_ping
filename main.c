@@ -1,31 +1,23 @@
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <stdio.h>
-#include <strings.h>
-#include <sys/socket.h>
-#include <netinet/ip_icmp.h>
-#include <fcntl.h>
-#include <unistd.h>
-int main()
-{
-	struct in_addr str;
-	struct hostent *host = gethostbyname("stackoverflow.com");
-	if (!host)
-	{
-		printf("cheh\n");
-	}
-	else
-	{
-		while (*host->h_aliases)
-			printf("alias: %s\n", *host->h_aliases++);
-		while (*host->h_addr_list)
-		{
-			bcopy(*host->h_addr_list++, (char *)&str, sizeof(str));
-			printf("addresse : %s\n", inet_ntoa(str));
-		}
-		printf("name : %s\n", host->h_name);
-	}
+#include "utils.h"
 
-	int sockfd = socket(AF_INET, SOCK_RAW, )
+int main(int ac, char *av[])
+{
+	t_ping	ping;
+
+	if (ac == 1)
+	{
+		dprintf(2, ERROR_NO_ARG);
+		return 1;
+	}
+	bzero(&ping, sizeof(ping));
+	ping.sockfd = -1;
+	resolve_dns(&ping, av[ac - 1]);
+	sockfd_create(&ping);
+	init_packet(&ping);
+	send_packet(&ping);
+	recv_packet(&ping);
+	exploit_packet(&ping);
+
+	close(ping.sockfd);
+	free(ping.buffer);
 }
