@@ -13,20 +13,25 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/time.h>
 
 // Define
 #define ERROR_DNS "ping: %s: Temporary failure in name resolution\n"
 #define ERROR_SOCKFD "Sockfd couldn't be created correctly\n"
 #define ERROR_NO_ARG "ping: usage error: Destination address required\n"
+#define TIMEOUT_SEC 5
 
 // Struct
 typedef struct s_ping
 {
+	int		seq;
+	char	*dns;
 	char	*ip_addr;
 	int		sockfd;
-	char	*packet;
 	char	*buffer;
-	struct	icmphdr *icmp_addr;
+	struct timespec *clock_start;
+	struct timespec *clock_end;
+	struct	icmp *icmp_addr;
 	struct	sockaddr_in *addr;
 	struct	sockaddr_in *recv_addr;
 	socklen_t			addr_length;
@@ -39,4 +44,5 @@ void	sockfd_create(t_ping *ping);
 void	init_packet(t_ping *ping);
 void	send_packet(t_ping *ping);
 void	recv_packet(t_ping *ping);
-void	exploit_packet(t_ping *ping);
+void	exploit_packet(t_ping *ping, double time);
+void	prep_packet(t_ping *ping);
