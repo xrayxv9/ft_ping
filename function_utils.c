@@ -5,7 +5,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 
+/**
+ * This function gets every bytes in the void *str, wich is a struct, 
+ * it adds every bytes with the others
+ * The bit shift is used to make the checksum length in a 16bits environment.
+ * @return unsigned short
+ * */
 unsigned short checksum(void *str, size_t len)
 {
 	unsigned int sum = 0;
@@ -25,6 +32,7 @@ unsigned short checksum(void *str, size_t len)
 
 void	fatal(t_ping *ping)
 {
+	printf("fatal error during execution\n");
 	if (ping->buffer)
 		free(ping->buffer);
 	if (ping->sockfd != -1)
@@ -33,6 +41,10 @@ void	fatal(t_ping *ping)
 		free(ping->addr);
 	if (ping->recv_addr)
 		free(ping->recv_addr);
+	if (ping->dns)
+		free(ping->dns);
+	if (ping->icmp_addr)
+		free(ping->icmp_addr);
 	exit(1);
 }
 
@@ -73,7 +85,7 @@ void	sockfd_create(t_ping *ping)
 	timeout.tv_usec = 0;
 	if (setsockopt(ping->sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1)
 	{
-		perror("Timout");
+		perror("Timeout");
 		fatal(ping);
 	}
 }
@@ -103,7 +115,7 @@ void	prep_packet(t_ping *ping)
 	icmp_addr->icmp_id = getpid() & 0xFFFF; // utile pour pouvoir utilise plusieurs ping en meme temps sans qu'ils s'emmele les pinceaux
 	// on tronc parce que c'est sur 16bits
 	icmp_addr->icmp_seq = htons(ping->seq++);// je fais passe un nombre qui n'est pas dans le bon format en big-endian car c'est la norme des reseaux
-	icmp_addr->icmp_cksum = checksum(ping->icmp_addr, sizeof(struct icmphdr));
+	icmp_addr->icmp_cksum = checksum(ping->icmp_addr, sizeof(struct icmp));
 }
 
 void	send_packet(t_ping *ping)
@@ -118,8 +130,18 @@ void	send_packet(t_ping *ping)
 
 void	recv_packet(t_ping *ping)
 {
-	if (recvfrom(ping->sockfd, ping->buffer, 1024, 0, (struct sockaddr *)ping->recv_addr, &ping->addr_length) == -1)
-		fatal(ping);
+	struct	ip *ip_header = NULL;
+	struct icmp *icmp_header = NULL;
+	
+	while (1)
+	{
+		if (recvfrom(ping->sockfd, ping->buffer, 1024, 0, (struct sockaddr *)ping->recv_addr, &ping->addr_length) == -1)
+			fatal(ping);
+		ip_header = (struct ip *)ping->buffer;
+		icmp_header = (struct icmp *)(ping->buffer + (ip_header->ip_hl << 2));
+		if (icmp_header->icmp_type == ICMP_ECHOREPLY && icmp_header->icmp_id == (getpid() & 0xFFFF))
+			break ;
+	}
 }
 
 
@@ -135,7 +157,6 @@ void	exploit_packet(t_ping *ping, double time)
 		printf("64 bytes from %s (%s): icmp_seq=%d ttl=%d time=%.3f ms\n", ping->dns, ping->ip_addr, ntohs(ping->icmp_addr->icmp_seq), ip_header->ip_ttl, time);
 	}
 	else {
-		printf("error\n");
 		fatal(ping);
 	}
 }
